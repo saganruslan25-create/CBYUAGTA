@@ -105,20 +105,24 @@
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; border-radius: 8px; cursor: pointer;
     transition: background .15s; border: 1px solid transparent; margin-bottom: 2px;
+    user-select: none;
   }
   .cat-item:hover { background: var(--surface2); border-color: var(--border2); }
   .cat-item.active { background: rgba(79,140,255,.1); border-color: rgba(79,140,255,.3); }
-  .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .cat-name { font-size: 12px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; pointer-events: none; }
+  .cat-name { font-size: 12px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
   .cat-count {
     font-size: 10px; background: var(--surface2); border: 1px solid var(--border2);
     color: var(--text3); padding: 2px 7px; border-radius: 20px; min-width: 22px; text-align: center;
+    pointer-events: none;
   }
   .cat-actions { display: flex; gap: 3px; opacity: 0; transition: opacity .15s; }
   .cat-item:hover .cat-actions { opacity: 1; }
   .cat-icon-btn {
     background: none; border: none; cursor: pointer; font-size: 12px;
     padding: 3px 5px; border-radius: 4px; line-height: 1; transition: all .15s;
+    /* FIX: ensure buttons are always clickable and above other elements */
+    position: relative; z-index: 2;
   }
   .cat-edit-btn { color: var(--accent); }
   .cat-edit-btn:hover { background: rgba(79,140,255,.15); }
@@ -164,12 +168,26 @@
   .empty-state {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 12px; color: var(--text3);
+    /* FIX: must fill full height to center properly */
+    min-height: 300px;
   }
   .empty-icon { font-size: 48px; opacity: .3; }
   .empty-title { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text2); }
   .empty-sub { font-size: 11px; text-align: center; max-width: 240px; line-height: 1.6; }
 
-  .items-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overscroll-behavior: contain; }
+  /* FIX: scroll container - removed overflow:clip from cards, proper scroll setup */
+  .items-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    /* FIX: explicit scroll anchoring */
+    overscroll-behavior-y: contain;
+  }
   .items-list::-webkit-scrollbar { width: 6px; }
   .items-list::-webkit-scrollbar-track { background: var(--surface); }
   .items-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -178,10 +196,22 @@
   .item-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 16px 18px;
-    transition: border-color .15s; position: relative; overflow: clip;
+    transition: border-color .15s; position: relative;
+    /* FIX: removed overflow:clip — it was clipping button click areas */
+    overflow: visible;
     flex-shrink: 0;
   }
   .item-card:hover { border-color: var(--border2); }
+
+  /* FIX: accent bar uses pseudo-element so no overflow clipping needed */
+  .item-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0; width: 3px;
+    border-radius: 12px 0 0 12px;
+    background: var(--card-accent, var(--accent));
+    pointer-events: none;
+  }
 
   .card-top {
     display: flex; align-items: flex-start; justify-content: space-between;
@@ -194,6 +224,8 @@
     border-radius: 6px; padding: 5px 10px; font-family: var(--mono);
     font-size: 10px; font-weight: 600; cursor: pointer; transition: all .15s;
     display: flex; align-items: center; gap: 4px; color: var(--text2);
+    /* FIX: ensure buttons render above card pseudo-element */
+    position: relative; z-index: 1;
   }
   .card-btn:hover { background: var(--border); color: var(--text); }
   .card-btn.copy-btn:hover { background: rgba(46,204,113,.15); border-color: var(--green); color: var(--green); }
@@ -207,7 +239,7 @@
     font-size: 10px; font-weight: 600; letter-spacing: .06em;
     padding: 3px 10px; border-radius: 20px; border: 1px solid; text-transform: uppercase;
   }
-  .badge-ув { background: rgba(155,89,182,.12); border-color: rgba(155,89,182,.4); color: var(--purple); }
+  .badge-уязнення { background: rgba(155,89,182,.12); border-color: rgba(155,89,182,.4); color: var(--purple); }
   .badge-штраф { background: rgba(243,156,18,.12); border-color: rgba(243,156,18,.4); color: var(--yellow); }
   .badge-розыск { background: rgba(231,76,60,.12); border-color: rgba(231,76,60,.4); color: var(--red); }
   .badge-default { background: rgba(79,140,255,.12); border-color: rgba(79,140,255,.4); color: var(--accent); }
@@ -233,8 +265,9 @@
     background: var(--surface); border: 1px solid var(--border2);
     border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh;
     overflow-y: auto; transform: translateY(20px); transition: transform .2s;
-    /* FIX: prevent mouse-drag-outside from closing modal */
     pointer-events: all;
+    /* FIX: prevent clicks inside modal from propagating to overlay */
+    position: relative;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
 
@@ -277,6 +310,7 @@
     background: var(--surface2); cursor: pointer; font-family: var(--mono);
     font-size: 10px; font-weight: 600; letter-spacing: .06em;
     text-align: center; text-transform: uppercase; color: var(--text2); transition: all .15s;
+    /* FIX: explicit type=button to prevent accidental form submit behavior */
   }
   .action-opt:hover { border-color: var(--border); color: var(--text); }
   .action-opt.selected-уязнення { background: rgba(155,89,182,.15); border-color: var(--purple); color: var(--purple); }
@@ -302,6 +336,7 @@
     border-radius: 10px; padding: 12px 18px; font-size: 11px; font-weight: 600;
     color: var(--green); display: flex; align-items: center; gap: 8px;
     transform: translateY(80px); opacity: 0; transition: all .25s;
+    pointer-events: none;
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
@@ -322,12 +357,6 @@
   }
 
   .highlight { background: rgba(79,140,255,.2); border-radius: 2px; padding: 0 2px; }
-
-  .modal-overlay.open .modal { pointer-events: all; }
-
-  /* Scroll fix: cards must not block scroll events reaching the list */
-  .item-card { touch-action: pan-y; }
-  .items-list { scroll-behavior: smooth; }
 </style>
 </head>
 <body>
@@ -339,8 +368,8 @@
     <span style="color:var(--text3);font-weight:400;font-size:10px;">// Ukraine GTA База Даних</span>
   </div>
   <div class="header-nav">
-    <button class="nav-btn active" onclick="setView('all')" id="nav-all">ВСЕ</button>
-    <button class="nav-btn" onclick="setView('cat')" id="nav-cat">КАТЕГОРІЯ</button>
+    <button type="button" class="nav-btn active" onclick="setView('all')" id="nav-all">ВСЕ</button>
+    <button type="button" class="nav-btn" onclick="setView('cat')" id="nav-cat">КАТЕГОРІЯ</button>
   </div>
 </header>
 
@@ -348,7 +377,7 @@
   <aside>
     <div class="sidebar-header">
       <span class="sidebar-title">Категорії</span>
-      <button class="btn-add-cat" onclick="openCatModal()" title="Нова категорія">+</button>
+      <button type="button" class="btn-add-cat" onclick="openCatModal()" title="Нова категорія">+</button>
     </div>
     <div class="cat-list" id="catList">
       <div style="padding:20px;text-align:center;color:var(--text3);font-size:11px;">
@@ -370,7 +399,7 @@
         <option value="штраф">Штраф</option>
         <option value="розыск">Розшук</option>
       </select>
-      <button class="btn-add-item" id="addItemBtn" onclick="openItemModal()" disabled>
+      <button type="button" class="btn-add-item" id="addItemBtn" onclick="openItemModal()" disabled>
         + Додати пункт
       </button>
     </div>
@@ -402,7 +431,7 @@
   <div class="modal" id="catModalBox">
     <div class="modal-header">
       <span class="modal-title" id="catModalTitle">НОВА КАТЕГОРІЯ</span>
-      <button class="modal-close" onclick="closeCatModal()">×</button>
+      <button type="button" class="modal-close" onclick="closeCatModal()">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -424,8 +453,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeCatModal()">Скасувати</button>
-      <button class="btn-primary" onclick="saveCategory()">Зберегти</button>
+      <button type="button" class="btn-secondary" onclick="closeCatModal()">Скасувати</button>
+      <button type="button" class="btn-primary" onclick="saveCategory()">Зберегти</button>
     </div>
   </div>
 </div>
@@ -435,7 +464,7 @@
   <div class="modal" id="itemModalBox">
     <div class="modal-header">
       <span class="modal-title" id="itemModalTitle">НОВИЙ ПУНКТ</span>
-      <button class="modal-close" onclick="closeItemModal()">×</button>
+      <button type="button" class="modal-close" onclick="closeItemModal()">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -453,9 +482,9 @@
       <div class="form-group">
         <label class="form-label">Вид дії</label>
         <div class="action-row">
-          <button class="action-opt" data-action="уязнення" onclick="selectAction(this)">Ув'язнення</button>
-          <button class="action-opt" data-action="штраф" onclick="selectAction(this)">Штраф</button>
-          <button class="action-opt" data-action="розыск" onclick="selectAction(this)">Розшук</button>
+          <button type="button" class="action-opt" data-action="уязнення" onclick="selectAction(this)">Ув'язнення</button>
+          <button type="button" class="action-opt" data-action="штраф" onclick="selectAction(this)">Штраф</button>
+          <button type="button" class="action-opt" data-action="розыск" onclick="selectAction(this)">Розшук</button>
         </div>
       </div>
       <div class="form-group">
@@ -464,8 +493,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeItemModal()">Скасувати</button>
-      <button class="btn-primary" onclick="saveItem()">Зберегти</button>
+      <button type="button" class="btn-secondary" onclick="closeItemModal()">Скасувати</button>
+      <button type="button" class="btn-primary" onclick="saveItem()">Зберегти</button>
     </div>
   </div>
 </div>
@@ -511,7 +540,7 @@ function showToast(msg, color = 'var(--green)') {
 }
 
 function getActionBadgeClass(a) {
-  if (a === 'уязнення') return 'badge-ув';
+  if (a === 'уязнення') return 'badge-уязнення';
   if (a === 'штраф') return 'badge-штраф';
   if (a === 'розыск') return 'badge-розыск';
   return 'badge-default';
@@ -533,22 +562,23 @@ function highlight(text, q) {
   const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return text.replace(new RegExp(`(${esc})`, 'gi'), '<span class="highlight">$1</span>');
 }
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-// ── MODAL CLOSE BUG FIX ──
-// Track if mousedown started on the overlay (not the modal box)
-// Only close if both mousedown AND mouseup were on the overlay itself
-function setupModalCloseFix(overlayId, closeFn) {
+// ── MODAL CLOSE: click outside (backdrop only) ──
+// FIX: use stopPropagation on the modal box itself, close only on direct overlay click
+function setupModalClose(overlayId, closeFn) {
   const overlay = document.getElementById(overlayId);
-  let mousedownOnOverlay = false;
+  const modal = overlay.querySelector('.modal');
 
-  overlay.addEventListener('mousedown', function(e) {
-    mousedownOnOverlay = (e.target === overlay);
-  });
-  overlay.addEventListener('mouseup', function(e) {
-    if (mousedownOnOverlay && e.target === overlay) {
-      closeFn();
-    }
-    mousedownOnOverlay = false;
+  // Prevent clicks inside the modal box from reaching the overlay
+  modal.addEventListener('mousedown', e => e.stopPropagation());
+  modal.addEventListener('click', e => e.stopPropagation());
+
+  // Close only when clicking directly on the overlay backdrop
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeFn();
   });
 }
 
@@ -567,7 +597,7 @@ function loadCategories() {
   onSnapshot(collection(db, 'categories'), snap => {
     categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderCatList();
-    renderItems(); // refresh item cat badges
+    renderItems();
   });
 }
 
@@ -586,15 +616,11 @@ function renderCatList() {
       <span class="cat-name">${escHtml(cat.name)}</span>
       <span class="cat-count">${count}</span>
       <div class="cat-actions">
-        <button class="cat-icon-btn cat-edit-btn" onclick="editCategory(event,'${cat.id}')" title="Редагувати">✎</button>
-        <button class="cat-icon-btn cat-del-btn" onclick="deleteCategory(event,'${cat.id}')" title="Видалити">✕</button>
+        <button type="button" class="cat-icon-btn cat-edit-btn" onclick="editCategory(event,'${cat.id}')" title="Редагувати">✎</button>
+        <button type="button" class="cat-icon-btn cat-del-btn" onclick="deleteCategory(event,'${cat.id}')" title="Видалити">✕</button>
       </div>
     </div>`;
   }).join('');
-}
-
-function escHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 window.selectCat = function(id) {
@@ -702,7 +728,6 @@ function renderItems() {
   }
   if (actionF) filtered = filtered.filter(i => i.action === actionF);
 
-  // sort by creation time desc
   filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
   document.getElementById('countText').textContent = `${filtered.length} пункт(ів)`;
@@ -722,14 +747,13 @@ function renderItems() {
     const badgeClass = getActionBadgeClass(item.action);
     const hl = t => highlight(escHtml(t || ''), search);
 
-    return `<div class="item-card">
-      <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${cardAccent};border-radius:12px 0 0 12px"></div>
+    return `<div class="item-card" style="--card-accent:${cardAccent}">
       <div class="card-top">
         <div class="card-title">${hl(item.title || 'Без назви')}</div>
         <div class="card-actions">
-          <button class="card-btn copy-btn" onclick="copyItem('${item.id}')" title="Скопіювати текст статті">⎘ Копія</button>
-          <button class="card-btn edit-btn" onclick="openItemModal('${item.id}')" title="Редагувати">✎ Ред.</button>
-          <button class="card-btn del-btn" onclick="deleteItem('${item.id}')" title="Видалити">✕</button>
+          <button type="button" class="card-btn copy-btn" onclick="copyItem('${item.id}')" title="Скопіювати текст статті">⎘ Копія</button>
+          <button type="button" class="card-btn edit-btn" onclick="openItemModal('${item.id}')" title="Редагувати">✎ Ред.</button>
+          <button type="button" class="card-btn del-btn" onclick="deleteItem('${item.id}')" title="Видалити">✕</button>
         </div>
       </div>
       ${item.text ? `<div class="card-text">${hl(item.text)}</div>` : ''}
@@ -744,7 +768,7 @@ function renderItems() {
 
 window.handleSearch = renderItems;
 
-// ── COPY — тільки назва + текст статті ──
+// ── COPY ──
 window.copyItem = function(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
@@ -762,7 +786,7 @@ window.deleteItem = async function(id) {
   showToast('Пункт видалено', 'var(--red)');
 };
 
-// ── ITEM MODAL — create & edit ──
+// ── ITEM MODAL ──
 window.openItemModal = function(itemId = null) {
   if (currentView === 'cat' && !activeCatId && !itemId) return;
   editingItemId = itemId;
@@ -781,7 +805,6 @@ window.openItemModal = function(itemId = null) {
     }
   });
 
-  // fill category select
   const catId = item ? item.categoryId : activeCatId;
   const sel = document.getElementById('itemCategory');
   sel.innerHTML = categories.map(c =>
@@ -798,7 +821,6 @@ window.closeItemModal = function() {
 };
 
 window.selectAction = function(el) {
-  // toggle: click same again = deselect
   if (selectedAction === el.dataset.action) {
     selectedAction = null;
     document.querySelectorAll('.action-opt').forEach(b => b.className = 'action-opt');
@@ -836,34 +858,18 @@ window.saveItem = async function() {
 // ── INIT ──
 document.getElementById('statusText').textContent = "Firebase з'єднано ✓";
 
-// Real-time listeners (onSnapshot already handles real-time updates)
 loadCategories();
 loadItems();
 
-// Modal close fix: only close when mousedown AND mouseup are on the overlay backdrop
-setupModalCloseFix('catModal', closeCatModal);
-setupModalCloseFix('itemModal', closeItemModal);
-
-
-// Scroll fix: ensure wheel events on cards are forwarded to the list
-(function() {
-  const list = document.getElementById('itemsList');
-  list.addEventListener('wheel', function(e) { /* native, already works */ }, { passive: true });
-  
-  // Delegate: if wheel fires on a card child, manually scroll the list
-  document.addEventListener('wheel', function(e) {
-    const card = e.target.closest && e.target.closest('.item-card');
-    if (card) {
-      e.preventDefault();
-      list.scrollBy({ top: e.deltaY, behavior: 'auto' });
-    }
-  }, { passive: false });
-})();
+// FIX: proper modal close — stopPropagation inside modal, close on backdrop click
+setupModalClose('catModal', closeCatModal);
+setupModalClose('itemModal', closeItemModal);
 
 // Keyboard ESC
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeCatModal(); closeItemModal(); }
 });
+
 // Enter in cat name input
 document.getElementById('catName').addEventListener('keydown', e => {
   if (e.key === 'Enter') saveCategory();
