@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>СБУ/НПУ Ukraine Gta — База Даних</title>
+<title>СБУ/НПУ — База Даних Ukraine GTA</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -96,8 +96,10 @@
   .btn-add-cat:hover { background: var(--accent2); }
 
   .cat-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .cat-list::-webkit-scrollbar { width: 4px; }
-  .cat-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .cat-list::-webkit-scrollbar { width: 5px; }
+  .cat-list::-webkit-scrollbar-track { background: transparent; }
+  .cat-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .cat-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
   .cat-item {
     display: flex; align-items: center; gap: 10px;
@@ -123,7 +125,7 @@
   .cat-del-btn { color: var(--red); }
   .cat-del-btn:hover { background: rgba(231,76,60,.15); }
 
-  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
   .toolbar {
     padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -167,14 +169,17 @@
   .empty-title { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text2); }
   .empty-sub { font-size: 11px; text-align: center; max-width: 240px; line-height: 1.6; }
 
-  .items-list { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-  .items-list::-webkit-scrollbar { width: 4px; }
-  .items-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .items-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .items-list::-webkit-scrollbar { width: 6px; }
+  .items-list::-webkit-scrollbar-track { background: var(--surface); }
+  .items-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .items-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
   .item-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 16px 18px;
     transition: border-color .15s; position: relative; overflow: hidden;
+    flex-shrink: 0;
   }
   .item-card:hover { border-color: var(--border2); }
 
@@ -326,8 +331,8 @@
 <header>
   <div class="logo">
     <div class="logo-dot"></div>
-    СБУ/НПУ База Даних Ukraine GTA
-    <span style="color:var(--text3);font-weight:400;font-size:10px;">// база даних</span>
+    СБУ/НПУ
+    <span style="color:var(--text3);font-weight:400;font-size:10px;">// Ukraine GTA База Даних</span>
   </div>
   <div class="header-nav">
     <button class="nav-btn active" onclick="setView('all')" id="nav-all">ВСЕ</button>
