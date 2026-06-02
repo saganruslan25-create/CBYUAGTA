@@ -169,7 +169,7 @@
   .empty-title { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text2); }
   .empty-sub { font-size: 11px; text-align: center; max-width: 240px; line-height: 1.6; }
 
-  .items-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .items-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overscroll-behavior: contain; }
   .items-list::-webkit-scrollbar { width: 6px; }
   .items-list::-webkit-scrollbar-track { background: var(--surface); }
   .items-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -178,7 +178,7 @@
   .item-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 16px 18px;
-    transition: border-color .15s; position: relative; overflow: hidden;
+    transition: border-color .15s; position: relative; overflow: clip;
     flex-shrink: 0;
   }
   .item-card:hover { border-color: var(--border2); }
@@ -324,6 +324,10 @@
   .highlight { background: rgba(79,140,255,.2); border-radius: 2px; padding: 0 2px; }
 
   .modal-overlay.open .modal { pointer-events: all; }
+
+  /* Scroll fix: cards must not block scroll events reaching the list */
+  .item-card { touch-action: pan-y; }
+  .items-list { scroll-behavior: smooth; }
 </style>
 </head>
 <body>
@@ -839,6 +843,22 @@ loadItems();
 // Modal close fix: only close when mousedown AND mouseup are on the overlay backdrop
 setupModalCloseFix('catModal', closeCatModal);
 setupModalCloseFix('itemModal', closeItemModal);
+
+
+// Scroll fix: ensure wheel events on cards are forwarded to the list
+(function() {
+  const list = document.getElementById('itemsList');
+  list.addEventListener('wheel', function(e) { /* native, already works */ }, { passive: true });
+  
+  // Delegate: if wheel fires on a card child, manually scroll the list
+  document.addEventListener('wheel', function(e) {
+    const card = e.target.closest && e.target.closest('.item-card');
+    if (card) {
+      e.preventDefault();
+      list.scrollBy({ top: e.deltaY, behavior: 'auto' });
+    }
+  }, { passive: false });
+})();
 
 // Keyboard ESC
 document.addEventListener('keydown', e => {
