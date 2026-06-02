@@ -220,26 +220,21 @@
     background: var(--surface2); border: 1px solid var(--border2); color: var(--text3);
   }
 
-  /* ── MODALS ── */
+  /* MODALS */
   .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.7);
-    backdrop-filter: blur(6px);
-    z-index: 500;
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    backdrop-filter: blur(6px); z-index: 500;
     display: flex; align-items: center; justify-content: center; padding: 20px;
     opacity: 0; pointer-events: none; transition: opacity .2s;
   }
-  .modal-overlay.open {
-    opacity: 1;
-    pointer-events: auto; /* overlay itself is clickable (for backdrop-close) */
-  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
 
   .modal {
     background: var(--surface); border: 1px solid var(--border2);
     border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh;
     overflow-y: auto; transform: translateY(20px); transition: transform .2s;
-    pointer-events: auto; /* always clickable regardless of overlay state */
-    position: relative; z-index: 1;
+    /* FIX: prevent mouse-drag-outside from closing modal */
+    pointer-events: all;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
 
@@ -327,6 +322,12 @@
   }
 
   .highlight { background: rgba(79,140,255,.2); border-radius: 2px; padding: 0 2px; }
+
+  .modal-overlay.open .modal { pointer-events: all; }
+
+  /* Scroll fix */
+  .items-list { scroll-snap-type: none; }
+  .item-card { overscroll-behavior: none; }
 </style>
 </head>
 <body>
@@ -532,16 +533,22 @@ function highlight(text, q) {
   const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return text.replace(new RegExp(`(${esc})`, 'gi'), '<span class="highlight">$1</span>');
 }
-function escHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
-// ── MODAL BACKDROP CLOSE ──
-// Close only when clicking the backdrop itself, not the modal content
-function setupModalBackdropClose(overlayId, closeFn) {
+// ── MODAL CLOSE BUG FIX ──
+// Track if mousedown started on the overlay (not the modal box)
+// Only close if both mousedown AND mouseup were on the overlay itself
+function setupModalCloseFix(overlayId, closeFn) {
   const overlay = document.getElementById(overlayId);
-  overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) closeFn();
+  let mousedownOnOverlay = false;
+
+  overlay.addEventListener('mousedown', function(e) {
+    mousedownOnOverlay = (e.target === overlay);
+  });
+  overlay.addEventListener('mouseup', function(e) {
+    if (mousedownOnOverlay && e.target === overlay) {
+      closeFn();
+    }
+    mousedownOnOverlay = false;
   });
 }
 
@@ -560,7 +567,7 @@ function loadCategories() {
   onSnapshot(collection(db, 'categories'), snap => {
     categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderCatList();
-    renderItems();
+    renderItems(); // refresh item cat badges
   });
 }
 
@@ -584,6 +591,10 @@ function renderCatList() {
       </div>
     </div>`;
   }).join('');
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 window.selectCat = function(id) {
@@ -690,6 +701,8 @@ function renderItems() {
     );
   }
   if (actionF) filtered = filtered.filter(i => i.action === actionF);
+
+  // sort by creation time desc
   filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
   document.getElementById('countText').textContent = `${filtered.length} пункт(ів)`;
@@ -731,6 +744,7 @@ function renderItems() {
 
 window.handleSearch = renderItems;
 
+// ── COPY — тільки назва + текст статті ──
 window.copyItem = function(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
@@ -748,6 +762,7 @@ window.deleteItem = async function(id) {
   showToast('Пункт видалено', 'var(--red)');
 };
 
+// ── ITEM MODAL — create & edit ──
 window.openItemModal = function(itemId = null) {
   if (currentView === 'cat' && !activeCatId && !itemId) return;
   editingItemId = itemId;
@@ -766,6 +781,7 @@ window.openItemModal = function(itemId = null) {
     }
   });
 
+  // fill category select
   const catId = item ? item.categoryId : activeCatId;
   const sel = document.getElementById('itemCategory');
   sel.innerHTML = categories.map(c =>
@@ -782,6 +798,7 @@ window.closeItemModal = function() {
 };
 
 window.selectAction = function(el) {
+  // toggle: click same again = deselect
   if (selectedAction === el.dataset.action) {
     selectedAction = null;
     document.querySelectorAll('.action-opt').forEach(b => b.className = 'action-opt');
@@ -818,26 +835,33 @@ window.saveItem = async function() {
 
 // ── INIT ──
 document.getElementById('statusText').textContent = "Firebase з'єднано ✓";
+
+// Real-time listeners (onSnapshot already handles real-time updates)
 loadCategories();
 loadItems();
 
-// Backdrop close (click on overlay area only)
-setupModalBackdropClose('catModal', closeCatModal);
-setupModalBackdropClose('itemModal', closeItemModal);
+// Modal close fix: only close when mousedown AND mouseup are on the overlay backdrop
+setupModalCloseFix('catModal', closeCatModal);
+setupModalCloseFix('itemModal', closeItemModal);
 
-// Scroll fix
-document.addEventListener('wheel', function(e) {
-  const list = document.getElementById('itemsList');
-  if (!list) return;
-  const card = e.target && e.target.closest && e.target.closest('.item-card');
-  if (card && list.contains(card)) list.scrollTop += e.deltaY;
-}, { passive: true });
+
+
+// Scroll fix: when wheel fires over a card, also scroll the list container
+(function() {
+  document.addEventListener('wheel', function(e) {
+    const list = document.getElementById('itemsList');
+    if (!list) return;
+    const card = e.target && e.target.closest && e.target.closest('.item-card');
+    if (card && list.contains(card)) {
+      list.scrollTop += e.deltaY;
+    }
+  }, { passive: true });
+})();
 
 // Keyboard ESC
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeCatModal(); closeItemModal(); }
 });
-
 // Enter in cat name input
 document.getElementById('catName').addEventListener('keydown', e => {
   if (e.key === 'Enter') saveCategory();
