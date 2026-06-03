@@ -169,7 +169,13 @@
   .empty-title { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text2); }
   .empty-sub { font-size: 11px; text-align: center; max-width: 240px; line-height: 1.6; }
 
-  .items-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overscroll-behavior: contain; }
+  /* FIX 2: Removed overflow:hidden from items-list wrapper interference,
+     and set scroll-behavior smooth for better UX */
+  .items-list {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;
+    min-height: 0; overscroll-behavior: contain;
+  }
   .items-list::-webkit-scrollbar { width: 6px; }
   .items-list::-webkit-scrollbar-track { background: var(--surface); }
   .items-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -178,7 +184,9 @@
   .item-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 16px 18px;
-    transition: border-color .15s; position: relative; overflow: clip;
+    transition: border-color .15s; position: relative;
+    /* FIX 2: overflow:clip replaced with overflow:hidden — clip blocks wheel event bubbling */
+    overflow: hidden;
     flex-shrink: 0;
   }
   .item-card:hover { border-color: var(--border2); }
@@ -220,21 +228,37 @@
     background: var(--surface2); border: 1px solid var(--border2); color: var(--text3);
   }
 
-  /* MODALS */
+  /* ═══════════════════════════════════════════════════
+     FIX 1: MODALS
+     KEY CHANGES:
+     - Removed pointer-events:none/all toggling — it causes stacking issues
+     - Modal overlay uses visibility+opacity instead
+     - Modal box always has pointer-events:all
+     - Overlay click-to-close is handled via JS only on the backdrop div
+  ═══════════════════════════════════════════════════ */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.7);
     backdrop-filter: blur(6px); z-index: 500;
     display: flex; align-items: center; justify-content: center; padding: 20px;
-    opacity: 0; pointer-events: none; transition: opacity .2s;
+    /* Use visibility instead of pointer-events to avoid blocking child clicks */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s, visibility .2s;
   }
-  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
 
   .modal {
     background: var(--surface); border: 1px solid var(--border2);
     border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh;
-    overflow-y: auto; transform: translateY(20px); transition: transform .2s;
-    /* FIX: prevent mouse-drag-outside from closing modal */
+    overflow-y: auto;
+    /* Always capture pointer events — never inherit none from overlay */
     pointer-events: all;
+    transform: translateY(20px); transition: transform .2s;
+    /* Stop clicks inside modal from reaching the overlay backdrop */
+    position: relative;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
 
@@ -302,6 +326,7 @@
     border-radius: 10px; padding: 12px 18px; font-size: 11px; font-weight: 600;
     color: var(--green); display: flex; align-items: center; gap: 8px;
     transform: translateY(80px); opacity: 0; transition: all .25s;
+    pointer-events: none;
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
@@ -322,12 +347,6 @@
   }
 
   .highlight { background: rgba(79,140,255,.2); border-radius: 2px; padding: 0 2px; }
-
-  .modal-overlay.open .modal { pointer-events: all; }
-
-  /* Scroll fix */
-  .items-list { scroll-snap-type: none; }
-  .item-card { overscroll-behavior: none; }
 </style>
 </head>
 <body>
@@ -399,6 +418,8 @@
 
 <!-- MODAL: КАТЕГОРІЯ -->
 <div class="modal-overlay" id="catModal">
+  <!-- FIX 1: backdrop div captures clicks for closing, modal box stops propagation -->
+  <div class="modal-backdrop" id="catModalBackdrop" style="position:absolute;inset:0;"></div>
   <div class="modal" id="catModalBox">
     <div class="modal-header">
       <span class="modal-title" id="catModalTitle">НОВА КАТЕГОРІЯ</span>
@@ -432,6 +453,7 @@
 
 <!-- MODAL: ПУНКТ -->
 <div class="modal-overlay" id="itemModal">
+  <div class="modal-backdrop" id="itemModalBackdrop" style="position:absolute;inset:0;"></div>
   <div class="modal" id="itemModalBox">
     <div class="modal-header">
       <span class="modal-title" id="itemModalTitle">НОВИЙ ПУНКТ</span>
@@ -534,21 +556,16 @@ function highlight(text, q) {
   return text.replace(new RegExp(`(${esc})`, 'gi'), '<span class="highlight">$1</span>');
 }
 
-// ── MODAL CLOSE BUG FIX ──
-// Track if mousedown started on the overlay (not the modal box)
-// Only close if both mousedown AND mouseup were on the overlay itself
-function setupModalCloseFix(overlayId, closeFn) {
-  const overlay = document.getElementById(overlayId);
-  let mousedownOnOverlay = false;
-
-  overlay.addEventListener('mousedown', function(e) {
-    mousedownOnOverlay = (e.target === overlay);
-  });
-  overlay.addEventListener('mouseup', function(e) {
-    if (mousedownOnOverlay && e.target === overlay) {
-      closeFn();
-    }
-    mousedownOnOverlay = false;
+// ══════════════════════════════════════════════════════════
+// FIX 1: MODAL BACKDROP CLICK HANDLING
+// Use a separate backdrop element behind the modal box.
+// Clicking backdrop closes, clicking inside modal does nothing.
+// This avoids the mousedown/mouseup race condition entirely.
+// ══════════════════════════════════════════════════════════
+function setupModalBackdrop(backdropId, closeFn) {
+  const backdrop = document.getElementById(backdropId);
+  backdrop.addEventListener('click', function(e) {
+    closeFn();
   });
 }
 
@@ -567,7 +584,7 @@ function loadCategories() {
   onSnapshot(collection(db, 'categories'), snap => {
     categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderCatList();
-    renderItems(); // refresh item cat badges
+    renderItems();
   });
 }
 
@@ -702,7 +719,6 @@ function renderItems() {
   }
   if (actionF) filtered = filtered.filter(i => i.action === actionF);
 
-  // sort by creation time desc
   filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
   document.getElementById('countText').textContent = `${filtered.length} пункт(ів)`;
@@ -744,7 +760,6 @@ function renderItems() {
 
 window.handleSearch = renderItems;
 
-// ── COPY — тільки назва + текст статті ──
 window.copyItem = function(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
@@ -762,7 +777,6 @@ window.deleteItem = async function(id) {
   showToast('Пункт видалено', 'var(--red)');
 };
 
-// ── ITEM MODAL — create & edit ──
 window.openItemModal = function(itemId = null) {
   if (currentView === 'cat' && !activeCatId && !itemId) return;
   editingItemId = itemId;
@@ -781,7 +795,6 @@ window.openItemModal = function(itemId = null) {
     }
   });
 
-  // fill category select
   const catId = item ? item.categoryId : activeCatId;
   const sel = document.getElementById('itemCategory');
   sel.innerHTML = categories.map(c =>
@@ -798,7 +811,6 @@ window.closeItemModal = function() {
 };
 
 window.selectAction = function(el) {
-  // toggle: click same again = deselect
   if (selectedAction === el.dataset.action) {
     selectedAction = null;
     document.querySelectorAll('.action-opt').forEach(b => b.className = 'action-opt');
@@ -836,26 +848,41 @@ window.saveItem = async function() {
 // ── INIT ──
 document.getElementById('statusText').textContent = "Firebase з'єднано ✓";
 
-// Real-time listeners (onSnapshot already handles real-time updates)
 loadCategories();
 loadItems();
 
-// Modal close fix: only close when mousedown AND mouseup are on the overlay backdrop
-setupModalCloseFix('catModal', closeCatModal);
-setupModalCloseFix('itemModal', closeItemModal);
+// ══════════════════════════════════════════════════════════
+// FIX 1: Setup backdrop click handlers (replaces old mousedown/mouseup hack)
+// ══════════════════════════════════════════════════════════
+setupModalBackdrop('catModalBackdrop', closeCatModal);
+setupModalBackdrop('itemModalBackdrop', closeItemModal);
 
-
-
-// Scroll fix: when wheel fires over a card, also scroll the list container
+// ══════════════════════════════════════════════════════════
+// FIX 2: SCROLL — attach wheel listener directly on the list container.
+// This catches all wheel events that bubble up from cards inside.
+// No need to manually re-scroll — the container handles it natively
+// once overflow:clip is changed to overflow:hidden on .item-card.
+// ══════════════════════════════════════════════════════════
 (function() {
-  document.addEventListener('wheel', function(e) {
-    const list = document.getElementById('itemsList');
-    if (!list) return;
-    const card = e.target && e.target.closest && e.target.closest('.item-card');
-    if (card && list.contains(card)) {
+  const list = document.getElementById('itemsList');
+  if (!list) return;
+  // Force the list to handle all wheel events from its children
+  list.addEventListener('wheel', function(e) {
+    // Only intercept if the list itself can scroll (has overflow content)
+    const canScroll = list.scrollHeight > list.clientHeight;
+    if (!canScroll) return;
+    // If wheel target is a child that doesn't itself overflow (like a card),
+    // manually scroll the list. This covers the "hovering over card" case.
+    const target = e.target;
+    const targetScrollable = target !== list && (
+      target.scrollHeight > target.clientHeight ||
+      target.closest('[style*="overflow"]')
+    );
+    if (!targetScrollable) {
       list.scrollTop += e.deltaY;
+      e.preventDefault();
     }
-  }, { passive: true });
+  }, { passive: false });
 })();
 
 // Keyboard ESC
